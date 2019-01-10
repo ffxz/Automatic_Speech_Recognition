@@ -1,3 +1,4 @@
+#/usr/bin/python
 # encoding: utf-8
 # ******************************************************
 # Author       : zzw922cn
@@ -30,7 +31,7 @@ def build_multi_dynamic_brnn(args,
     hid_input = inputX
     for i in range(args.num_layer):
         scope = 'DBRNN_' + str(i + 1)
-        forward_cell = cell_fn(args.num_hidden, activation=args.activation)
+        forward_cell = cell_fn(args.num_hidden, activation=args.activation)#args.num_hidden
         backward_cell = cell_fn(args.num_hidden, activation=args.activation)
         # tensor of shape: [max_time, batch_size, input_size]
         outputs, output_states = bidirectional_dynamic_rnn(forward_cell, backward_cell,
@@ -54,7 +55,7 @@ def build_multi_dynamic_brnn(args,
         if i != args.num_layer - 1:
             hid_input = hidden
         else:
-            outputXrs = tf.reshape(hidden, [-1, args.num_hidden])
+            outputXrs = tf.reshape(hidden, [-1, int(args.num_hidden)])
             # output_list = tf.split(0, maxTimeSteps, outputXrs)
             output_list = tf.split(outputXrs, maxTimeSteps, 0)
             fbHrs = [tf.reshape(t, [args.batch_size, args.num_hidden]) for t in output_list]
@@ -93,7 +94,7 @@ class DBiRNN(object):
             self.inputX = tf.placeholder(tf.float32,
                                          shape=(maxTimeSteps, args.batch_size, args.num_feature))  # [maxL,32,39]
             inputXrs = tf.reshape(self.inputX, [-1, args.num_feature])
-            # self.inputList = tf.split(0, maxTimeSteps, inputXrs) #convert inputXrs from [32*maxL,39] to [32,maxL,39]
+            #self.inputList = tf.split(0, maxTimeSteps, inputXrs) #convert inputXrs from [32*maxL,39] to [32,maxL,39]
             self.inputList = tf.split(inputXrs, maxTimeSteps, 0)  # convert inputXrs from [32*maxL,39] to [32,maxL,39]
             self.targetIxs = tf.placeholder(tf.int64)
             self.targetVals = tf.placeholder(tf.int32)
@@ -104,22 +105,32 @@ class DBiRNN(object):
                            'rnncell': self.cell_fn,
                            'num_layer': args.num_layer,
                            'num_hidden': args.num_hidden,
-                           'num_class': args.num_class,
+                           'num_class': args.num_classes,
                            'activation': args.activation,
                            'optimizer': args.optimizer,
                            'learning rate': args.learning_rate,
                            'keep prob': args.keep_prob,
                            'batch size': args.batch_size}
-
+            
             fbHrs = build_multi_dynamic_brnn(self.args, maxTimeSteps, self.inputX, self.cell_fn, self.seqLengths)
+            print(args.num_classes, type(args.num_hidden))
+            print('star**')
             with tf.name_scope('fc-layer'):
                 with tf.variable_scope('fc'):
+                    
                     weightsClasses = tf.Variable(
-                        tf.truncated_normal([args.num_hidden, args.num_class], name='weightsClasses'))
-                    biasesClasses = tf.Variable(tf.zeros([args.num_class]), name='biasesClasses')
+                        tf.truncated_normal(shape=[args.num_hidden, args.num_classes]), name='weightsClasses')
+                    
+                    biasesClasses = tf.Variable(tf.zeros([args.num_classes]), name='biasesClasses')
+                    
                     logits = [tf.matmul(t, weightsClasses) + biasesClasses for t in fbHrs]
+            print('tar*')
             logits3d = tf.stack(logits)
             self.loss = tf.reduce_mean(tf.nn.ctc_loss(self.targetY, logits3d, self.seqLengths))
+
+            #this code is added
+            tf.summary.scalar('loss', self.loss)
+
             self.var_op = tf.global_variables()
             self.var_trainable_op = tf.trainable_variables()
 
@@ -135,5 +146,7 @@ class DBiRNN(object):
                 tf.nn.ctc_beam_search_decoder(logits3d, self.seqLengths, merge_repeated=False)[0][0])
             if args.level == 'cha':
                 self.errorRate = tf.reduce_sum(tf.edit_distance(self.predictions, self.targetY, normalize=True))
+                tf.summary.scalar('error', self.errorRate)
+
             self.initial_op = tf.global_variables_initializer()
             self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=5, keep_checkpoint_every_n_hours=1)

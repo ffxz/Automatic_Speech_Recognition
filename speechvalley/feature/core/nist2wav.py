@@ -16,10 +16,13 @@ def nist2wav(src_dir):
     for subdir, dirs, files in os.walk(src_dir):
         for f in files:
             fullFilename = os.path.join(subdir, f)
-            if f.endswith('.wv1') or f.endswith('.wv2'):
-                count += 1
-                os.system("./sph2pipe_v2.5/sph2pipe "+fullFilename+" -f rif " +fullFilename+".wav")
+            #print(fullFilename)
+            #if f.endswith('.wv1') or f.endswith('.wv2'):
+            if f.endswith('.wav'):
                 print(fullFilename)
+                count += 1
+                #os.system("./sph2pipe_v2.5/sph2pipe "+fullFilename+" -f rif " +fullFilename+".wav")
+                #print(fullFilename)
 
 if __name__ == '__main__':
-    nist2wav('/home/pony/wsj/')
+    nist2wav('/home2/sining/yan2/asr/Automatic_Speech_Recognition/TIMIT/')

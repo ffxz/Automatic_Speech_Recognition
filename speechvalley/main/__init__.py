@@ -6,4 +6,5 @@
 # Filename     : __init__.py
 # Description  : Libraries for training models for Automatic Speech Recognition
 # ******************************************************
-
+import sys
+sys.path.append("../../")

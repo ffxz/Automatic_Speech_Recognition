@@ -1,3 +1,4 @@
+#/usr/bin/python
 # encoding: utf-8
 # ******************************************************
 # Author       : zzw922cn
@@ -26,25 +27,25 @@ from tensorflow.python.platform import app
 flags.DEFINE_string('task', 'timit', 'set task name of this program')
 flags.DEFINE_string('mode', 'train', 'set whether to train or test')
 flags.DEFINE_boolean('keep', False, 'set whether to restore a model, when test mode, keep should be set to True')
-flags.DEFINE_string('level', 'phn', 'set the task level, phn, cha, or seq2seq, seq2seq will be supported soon')
-flags.DEFINE_string('model', 'CapsuleNetwork', 'set the model to use, DBiRNN, BiRNN, ResNet..')
+flags.DEFINE_string('level', 'cha', 'set the task level, phn, cha, or seq2seq, seq2seq will be supported soon')
+flags.DEFINE_string('model', 'DBiRNN', 'set the model to use, DBiRNN, BiRNN, ResNet..')
 flags.DEFINE_string('rnncell', 'lstm', 'set the rnncell to use, rnn, gru, lstm...')
 flags.DEFINE_integer('num_layer', 2, 'set the layers for rnn')
 flags.DEFINE_string('activation', 'tanh', 'set the activation to use, sigmoid, tanh, relu, elu...')
 flags.DEFINE_string('optimizer', 'adam', 'set the optimizer to use, sgd, adam...')
 flags.DEFINE_boolean('layerNormalization', False, 'set whether to apply layer normalization to rnn cell')
 
-flags.DEFINE_integer('batch_size', 16, 'set the batch size')
-flags.DEFINE_integer('num_hidden', 128, 'set the hidden size of rnn cell')
+flags.DEFINE_integer('batch_size', 256, 'set the batch size')
+flags.DEFINE_integer('num_hidden', 256, 'set the hidden size of rnn cell')
 flags.DEFINE_integer('num_feature', 39, 'set the size of input feature')
 flags.DEFINE_integer('num_classes', 30, 'set the number of output classes')
-flags.DEFINE_integer('num_epochs', 500, 'set the number of epochs')
+flags.DEFINE_integer('num_epochs', 10, 'set the number of epochs')
 flags.DEFINE_integer('num_iter', 3, 'set the number of iterations in routing')
 flags.DEFINE_float('lr', 0.0001, 'set the learning rate')
 flags.DEFINE_float('dropout_prob', 0.1, 'set probability of dropout')
 flags.DEFINE_float('grad_clip', 1, 'set the threshold of gradient clipping, -1 denotes no clipping')
-flags.DEFINE_string('datadir', '/home/pony/github/data/timit', 'set the data root directory')
-flags.DEFINE_string('logdir', '/home/pony/github/log/timit', 'set the log directory')
+flags.DEFINE_string('datadir', '/home2/sining/yan2/BinCode/asr/Automatic_Speech_Recognition/savefile', 'set the data root directory')
+flags.DEFINE_string('logdir', '/home2/sining/yan2/Bincode/asr/Automatic_Speech_Recognition/dataset', 'set the log directory')
 
 
 FLAGS = flags.FLAGS
@@ -61,7 +62,7 @@ elif FLAGS.model == 'CapsuleNetwork':
 else:
     model_fn = None
 rnncell = FLAGS.rnncell
-num_layer = FLAGS.num_layer
+num_layer = int(FLAGS.num_layer)
 
 activation_fn = activation_functions_dict[FLAGS.activation]
 optimizer_fn = optimizer_functions_dict[FLAGS.optimizer]
@@ -70,6 +71,7 @@ batch_size = FLAGS.batch_size
 num_hidden = FLAGS.num_hidden
 num_feature = FLAGS.num_feature
 num_classes = get_num_classes(level)
+print("class:",num_classes)
 num_epochs = FLAGS.num_epochs
 num_iter = FLAGS.num_iter
 lr = FLAGS.lr
@@ -131,8 +133,10 @@ class Runner(object):
         args_dict = self._default_configs()
         args = dotdict(args_dict)
         batchedData, maxTimeSteps, totalN = self.load_data(args, mode=mode, type=level)
+        print("***************")
+        print(maxTimeSteps)
         model = model_fn(args, maxTimeSteps)
-
+        #model = model_fn(args,1000)
         # count the num of params
         num_params = count_params(model, mode='trainable')
         all_num_params = count_params(model, mode='all')
@@ -140,8 +144,15 @@ class Runner(object):
         model.config['all params'] = all_num_params
         print(model.config)
 
-        #with tf.Session(graph=model.graph) as sess:
-        with tf.Session() as sess:
+
+
+
+        
+        with tf.Session(graph=model.graph) as sess:
+
+
+
+        #with tf.Session() as sess:
             # restore from stored model
             if keep == True:
                 ckpt = tf.train.get_checkpoint_state(savedir)
@@ -151,6 +162,10 @@ class Runner(object):
             else:
                 print('Initializing')
                 sess.run(model.initial_op)
+            merged_summary_op = tf.summary.merge_all()
+
+            summary_writer = tf.summary.FileWriter('/home2/sining/yan2/BinCode/asr/'
+                                                   'Automatic_Speech_Recognition/dataset/cha/sum', sess.graph)
 
             for epoch in range(num_epochs):
                 ## training
@@ -176,6 +191,8 @@ class Runner(object):
                             batchErrors[batch] = er
                             print('\n{} mode, total:{},batch:{}/{},epoch:{}/{},train loss={:.3f},mean train CER={:.3f}\n'.format(
                                 level, totalN, batch+1, len(batchRandIxs), epoch+1, num_epochs, l, er/batch_size))
+                            summary_str = sess.run(merged_summary_op, feed_dict=feedDict)
+                            summary_writer.add_summary(summary_str, epoch)
 
                         elif mode == 'test':
                             l, pre, y, er = sess.run([model.loss, model.predictions, 
@@ -183,6 +200,7 @@ class Runner(object):
                             batchErrors[batch] = er
                             print('\n{} mode, total:{},batch:{}/{},test loss={:.3f},mean test CER={:.3f}\n'.format(
                                 level, totalN, batch+1, len(batchRandIxs), l, er/batch_size))
+
 
                     elif level == 'phn':
                         if mode == 'train':
@@ -218,6 +236,9 @@ class Runner(object):
                 end = time.time()
                 delta_time = end - start
                 print('Epoch ' + str(epoch + 1) + ' needs time:' + str(delta_time) + ' s')
+
+
+
 
                 if mode=='train':
                     if (epoch + 1) % 1 == 0:
