@@ -23,11 +23,15 @@ import os
 import argparse
 import glob
 import sys
+sys.path.append("../")
+sys.path.append("../../")
+sys.path.append("../../../")
 import sklearn
 import numpy as np
 import scipy.io.wavfile as wav
 from sklearn import preprocessing
-from speechvalley.feature.core import calcfeat_delta_delta, spectrogramPower
+from speechvalley.feature.core.spectrogram import spectrogramPower
+from speechvalley.feature.core.calcmfcc import calcfeat_delta_delta
 
 ## original phonemes
 phn = ['aa', 'ae', 'ah', 'ao', 'aw', 'ax', 'ax-h', 'axr', 'ay', 'b', 'bcl', 'ch', 'd', 'dcl', 'dh', 'dx', 'eh', 'el', 'em', 'en', 'eng', 'epi', 'er', 'ey', 'f', 'g', 'gcl', 'h#', 'hh', 'hv', 'ih', 'ix', 'iy', 'jh', 'k', 'kcl', 'l', 'm', 'n', 'ng', 'nx', 'ow', 'oy', 'p', 'pau', 'pcl', 'q', 'r', 's', 'sh', 't', 'tcl', 'th', 'uh', 'uw', 'ux', 'v', 'w', 'y', 'z', 'zh']
@@ -47,7 +51,7 @@ def wav2feature(rootdir, save_directory, mode, feature_len, level, keywords, win
         for file in files:
             fullFilename = os.path.join(subdir, file)
             filenameNoSuffix =  os.path.splitext(fullFilename)[0]
-            if file.endswith('.WAV'):
+            if file.endswith('_rif.wav'):
                 rate = None
                 sig = None
                 try:
@@ -62,7 +66,7 @@ def wav2feature(rootdir, save_directory, mode, feature_len, level, keywords, win
                 print(feat.shape)
 
                 if level == 'phn':
-                    labelFilename = filenameNoSuffix + '.PHN'
+                    labelFilename = filenameNoSuffix[:-4] + '.phn'
                     phenome = []
                     with open(labelFilename,'r') as f:
                         if seq2seq is True:
@@ -77,7 +81,7 @@ def wav2feature(rootdir, save_directory, mode, feature_len, level, keywords, win
                     phenome = np.array(phenome)
 
                 elif level == 'cha':
-                    labelFilename = filenameNoSuffix + '.WRD'
+                    labelFilename = filenameNoSuffix[:-4] + '.wrd'
                     phenome = []
                     sentence = ''
                     with open(labelFilename,'r') as f:
@@ -102,9 +106,9 @@ def wav2feature(rootdir, save_directory, mode, feature_len, level, keywords, win
                 count+=1
                 print('file index:',count)
                 if save:
-                    featureFilename = feat_dir + filenameNoSuffix.split('/')[-2]+'-'+filenameNoSuffix.split('/')[-1]+'.npy'
+                    featureFilename = feat_dir +'/'+ filenameNoSuffix.split('/')[-2]+'-'+filenameNoSuffix.split('/')[-1]+'.npy'
                     np.save(featureFilename,feat)
-                    labelFilename = label_dir + filenameNoSuffix.split('/')[-2]+'-'+filenameNoSuffix.split('/')[-1]+'.npy'
+                    labelFilename = label_dir + '/' + filenameNoSuffix.split('/')[-2]+'-'+filenameNoSuffix.split('/')[-1]+'.npy'
                     print(labelFilename)
                     np.save(labelFilename,phenome)
 
